@@ -8,6 +8,7 @@ import javax.net.ssl.X509TrustManager
 
 class urlcheck {
     def visited = []
+    int depth = 0
 
     static void main(String[] args) {
         // Disable SSL certificate validation
@@ -25,26 +26,24 @@ class urlcheck {
         HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory())
         HttpsURLConnection.setDefaultHostnameVerifier(nullHostnameVerifier as HostnameVerifier)
 
-        def urlcheck = new urlcheck()
-
         System.in.eachLine { url ->
             if (url.matches(/(?i)quit/)) { System.exit(0) }
-            urlcheck.go(url)
+            new urlcheck().check(url)
         }
     }
 
-    void go(String url) {
-        visited = []
-        go(url, 1)
+    void check(String url) {
+        go(url)
         println ""
     }
 
-    void redirect(String url, int depth) {
+    void redirect(String url) {
         print " [REDIR] -> "
-        go(url, depth)
+        go(url)
     }
 
-    void go(String url, int depth) {
+    void go(String url) {
+        depth++
         print url
 
         if (url in visited || depth > 10) {
@@ -67,7 +66,7 @@ class urlcheck {
                         doc.select("meta[http-equiv=refresh]").each {
                             def matcher = it.attr("content") =~ /(?i)\d+;\s*URL=(.*)/
                             if (matcher.matches()) {
-                                redirect(matcher.group(1), depth + 1)
+                                redirect(matcher.group(1))
                             } else if (doc.title() =~ /(?i)internet authentication/) {
                                 print " [AUTH]"
                             }
@@ -76,7 +75,7 @@ class urlcheck {
                     // Redirection
                     case 300..399:
                         headerFields["Location"].each {
-                            redirect(it, depth + 1)
+                            redirect(it)
                         }
                         break
                 }
@@ -87,5 +86,6 @@ class urlcheck {
         } catch (Exception ex) {
             print " [$ex.message]"
         }
+        depth--
     }
 }
