@@ -57,34 +57,41 @@ class urlcheck {
             new URL(url).openConnection().with {
                 defaultUseCaches = false
                 requestMethod = "GET"
-                connect()
-                print " [$responseCode]"
-                switch(responseCode) {
-                    // OK
-                    case 200:
-                        def doc = Jsoup.parse(inputStream, "UTF-8", url)
-                        doc.select("meta[http-equiv=refresh]").each {
-                            def matcher = it.attr("content") =~ /(?i)\d+;\s*URL=(.*)/
-                            if (matcher.matches()) {
-                                redirect(matcher.group(1))
-                            } else if (doc.title() =~ /(?i)internet authentication/) {
-                                print " [AUTH]"
+                try {
+                    connect()
+                    print " [$responseCode]"
+                    switch(responseCode) {
+                        // OK
+                        case 200:
+                            def doc = Jsoup.parse(inputStream, "UTF-8", url)
+                            inputStream.close()
+                            doc.select("meta[http-equiv=refresh]").each {
+                                def matcher = it.attr("content") =~ /(?i)\d+;\s*URL=(.*)/
+                                if (matcher.matches()) {
+                                    redirect(matcher.group(1))
+                                } else if (doc.title() =~ /(?i)internet authentication/) {
+                                    print " [AUTH]"
+                                }
                             }
-                        }
-                        break
-                    // Redirection
-                    case 300..399:
-                        headerFields["Location"].each {
-                            redirect(it)
-                        }
-                        break
+                            break
+                        // Redirection
+                        case 300..399:
+                            headerFields["Location"].each {
+                                redirect(it)
+                            }
+                            break
+                    }
+                }
+                catch (UnknownHostException ignored) {
+                    print " [NXDOMAIN]"
+                }
+                finally {
+                    disconnect()
                 }
                 this
             }
-        } catch (UnknownHostException ignored) {
-            print " [NXDOMAIN]"
         } catch (Exception ex) {
-            print " [$ex.message]"
+            System.err.println "\n$ex.message"
         }
         depth--
     }
