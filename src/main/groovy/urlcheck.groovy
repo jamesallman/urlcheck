@@ -28,7 +28,7 @@ class urlcheck {
         def urlcheck = new urlcheck()
 
         System.in.eachLine { url ->
-            if (url == "quit") { System.exit(0) }
+            if (url.matches(/(?i)quit/)) { System.exit(0) }
             urlcheck.go(url)
         }
     }
@@ -39,8 +39,14 @@ class urlcheck {
         println ""
     }
 
+    void redirect(String url, int depth) {
+        print " [REDIR] -> "
+        go(url, depth)
+    }
+
     void go(String url, int depth) {
         print url
+
         if (url in visited || depth > 10) {
             print " [WTF?!]"
             return
@@ -54,23 +60,27 @@ class urlcheck {
                 requestMethod = "GET"
                 connect()
                 print " [$responseCode]"
-                if (responseCode in (300..399)) {
-                    headerFields["Location"].each {
-                        print " [REDIR] -> "
-                        go(it, depth + 1)
-                    }
-                } else if (responseCode == 200) {
-                    def doc = Jsoup.parse(inputStream, "UTF-8", url as String)
-                    doc.select("meta[http-equiv=refresh]").each {
-                        def matcher = it.attr("content") =~ /(?i)\d+;\s*URL=(.*)/
-                        if (matcher.matches()) {
-                            print " [REDIR] -> "
-                            go(matcher.group(1), depth + 1)
-                        } else if (doc.title() =~ /(?i)internet authentication/) {
-                            print " [AUTH]"
+                switch(responseCode) {
+                    // OK
+                    case 200:
+                        def doc = Jsoup.parse(inputStream, "UTF-8", url)
+                        doc.select("meta[http-equiv=refresh]").each {
+                            def matcher = it.attr("content") =~ /(?i)\d+;\s*URL=(.*)/
+                            if (matcher.matches()) {
+                                redirect(matcher.group(1), depth + 1)
+                            } else if (doc.title() =~ /(?i)internet authentication/) {
+                                print " [AUTH]"
+                            }
                         }
-                    }
+                        break
+                    // Redirection
+                    case 300..399:
+                        headerFields["Location"].each {
+                            redirect(it, depth + 1)
+                        }
+                        break
                 }
+                this
             }
         } catch (UnknownHostException ignored) {
             print " [NXDOMAIN]"
