@@ -24,7 +24,7 @@ http and meta redirection.
 
 # Building
 
-This project uses the [Gradle](www.gradle.org) build automation tool.
+This project uses the [Gradle](http://www.gradle.org) build automation tool.
 
 ## Artifacts
 
